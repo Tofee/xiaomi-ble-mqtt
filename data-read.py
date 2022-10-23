@@ -34,7 +34,10 @@ for proc in psutil.process_iter():
         proc.kill()
 ##################################################################
 
-workdir = os.path.dirname(os.path.realpath(__file__))
+workdir = os.getenv('CONFIGPATH')
+if workdir == None:
+    workdir = os.path.dirname(os.path.realpath(__file__))
+
 config = configparser.ConfigParser()
 config.read("{0}/devices.ini".format(workdir))
 
@@ -42,8 +45,10 @@ devices = config.sections()
 
 
 # Averages
+AVERAGE_FILEPATH = "/tmp/xiaomi-ble-mqtt.averages.ini"
+
 averages = configparser.ConfigParser()
-averages.read("{0}/averages.ini".format(workdir))
+averages.read(AVERAGE_FILEPATH)
 
 messages = []
 
@@ -191,7 +196,7 @@ try:
 except Exception as ex:
     print(datetime.datetime.now(), "Error publishing to MQTT: {0}".format(str(ex)))
 
-with open("{0}/averages.ini".format(workdir), "w") as averages_file:
+with open(AVERAGE_FILEPATH, "w") as averages_file:
     averages.write(averages_file)
 
 print("... done")
