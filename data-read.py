@@ -118,30 +118,29 @@ for device in devices:
         cal_unit['battery']="%"
         cal_unit['temperature']='°C'
 
-        for device_class in config[device].get("device_class").split(":"):
-            
+        if config[device].get("device_class"):
+            for device_class in config[device].get("device_class").split(":"):
+                dataconfig=json.dumps(
+                        {
+                            "device_class": device_class,
+                            "name": device_class.capitalize(),
+                            "state_topic": config[device].get("topic")+"/state",
+                            "value_template": "{{value_json."+device_class+"}}",        
+                            "unique_id":config[device].get("device_mac")+"_"+str(i),
+                            "unit_of_measurement":cal_unit[device_class] ,
+                            "device":{
+                                "identifiers": [config[device].get("device_mac")],
+                                "name": device,
+                                "model": config[device].get("device"),
+                                "manufacturer": "Xiomi",
+                                "sw_version" : "0.1",
 
+                                }
+                            }            
+                        ) 
+                messages.append({'topic': "homeassistant/"+config[device].get("topic")+"_"+str(i)+"/config",'payload': dataconfig})
+                i=i+1
 
-            dataconfig=json.dumps(
-                {
-                "device_class": device_class,
-                "name": device_class.capitalize(),
-                "state_topic": config[device].get("topic")+"/state",
-                "value_template": "{{value_json."+device_class+"}}",        
-                "unique_id":config[device].get("device_mac")+"_"+str(i),
-                "unit_of_measurement":cal_unit[device_class] ,
-                "device":{
-                  "identifiers": [config[device].get("device_mac")],
-                  "name": device,
-                  "model": config[device].get("device"),
-                  "manufacturer": "Xiomi",
-                  "sw_version" : "0.1",
-
-                }
-                }            
-            ) 
-            messages.append({'topic': "homeassistant/"+config[device].get("topic")+"_"+str(i)+"/config",'payload': dataconfig})
-            i=i+1
         messages.append({'topic': config[device].get("topic")+"/state", 'payload': data, 'retain': config[device].getboolean("retain", False)})
         availability = 'online'
     except BTLEException as e:
@@ -179,7 +178,7 @@ mqtt_config.read("{0}/mqtt.ini".format(workdir))
 mqtt_broker_cfg = mqtt_config["broker"]
 
 
-print("Try MQTT")
+print("Sending data to MQTT...")
 try:
     auth = None
     mqtt_username = mqtt_broker_cfg.get("username")
@@ -194,3 +193,5 @@ except Exception as ex:
 
 with open("{0}/averages.ini".format(workdir), "w") as averages_file:
     averages.write(averages_file)
+
+print("... done")
