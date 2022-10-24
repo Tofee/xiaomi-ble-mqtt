@@ -45,6 +45,16 @@ class MiTempBtPoller(object):
         """Fill the cache with new data from the sensor."""
         _LOGGER.debug('Filling cache with new sensor data.')
 
+        from bluepy import btle
+        scanner = btle.Scanner()
+        results = scanner.scan(20.0, passive=True)
+        for res in results:
+            if res.addr.lower() == self._mac.lower():
+                for (adtype, desc, value) in res.getScanData():
+                    if ("1a18" in value):
+                        self.handleNotification(None, value)
+        return
+
         with self._bt_interface.connect(self._mac) as connection:
             _LOGGER.debug('Send Start.')  
             connection._DATA_MODE_LISTEN=b'\xf4\x01\x00'
@@ -118,11 +128,26 @@ class MiTempBtPoller(object):
         data = self._cache
 
         res = dict()
+
+        # from https://github.com/pvvx/ATC_MiThermometer#reading-measurements-in-advertising-mode :
+        # uint16_t    UUID;   // = 0x181A, GATT Service 0x181A Environmental Sensing
+        # uint8_t     MAC[6]; // [0] - lo, .. [6] - hi digits
+        # int16_t     temperature;    // x 0.01 degree
+        # uint16_t    humidity;       // x 0.01 %
+        # uint16_t    battery_mv;     // mV
+        # uint8_t     battery_level;  // 0..100 %
+
         _LOGGER.debug('_parse_data')
-        res[MI_TEMPERATURE] = int.from_bytes(data[0:2],byteorder='little',signed=True)/100
-        res[MI_HUMIDITY]  = int.from_bytes(data[2:3],byteorder='little')
-        voltage=int.from_bytes(data[3:5],byteorder='little') / 1000.
-        res[MI_BATTERY]  =  min(int(round((voltage - 2.1),2) * 100), 100)
+        if ("1a18" in data):
+            res[MI_TEMPERATURE] = int(data[18:20]+data[16:18], 16) / 100
+            res[MI_HUMIDITY]  = int(data[22:24]+data[20:22], 16) / 100
+            res[MI_BATTERY]  = int(data[28:30], 16)
+        else:
+            res[MI_TEMPERATURE] = int.from_bytes(data[0:2],byteorder='little',signed=True)/100
+            res[MI_HUMIDITY]  = int.from_bytes(data[2:3],byteorder='little')
+            voltage=int.from_bytes(data[3:5],byteorder='little') / 1000.
+            res[MI_BATTERY]  =  min(int(round((voltage - 2.1),2) * 100), 100)
+
         _LOGGER.debug('/_parse_data')
         return res
 
