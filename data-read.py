@@ -175,28 +175,28 @@ for device in devices:
     # finally:
     #      messages.append({'topic': config[device].get("availability_topic"), 'payload': availability, 'retain': config[device].getboolean("retain", False)})
 
+if len(messages) > 0:
+    # Init MQTT
+    mqtt_config = configparser.ConfigParser()
+    mqtt_config.read("{0}/mqtt.ini".format(workdir))
+    mqtt_broker_cfg = mqtt_config["broker"]
 
+    print("Sending data to MQTT...")
+    try:
+        auth = None
+        mqtt_username = mqtt_broker_cfg.get("username")
+        mqtt_password = mqtt_broker_cfg.get("password")
 
-# Init MQTT
-mqtt_config = configparser.ConfigParser()
-mqtt_config.read("{0}/mqtt.ini".format(workdir))
-mqtt_broker_cfg = mqtt_config["broker"]
+        if mqtt_username:
+            auth = {"username": mqtt_username, "password": mqtt_password}
+        publish.multiple(messages, keepalive=50,hostname=mqtt_broker_cfg.get("host"), port=mqtt_broker_cfg.getint("port"), client_id=mqtt_broker_cfg.get("client"), auth=auth)
+    except Exception as ex:
+        print(datetime.datetime.now(), "Error publishing to MQTT: {0}".format(str(ex)))
 
+    with open(AVERAGE_FILEPATH, "w") as averages_file:
+        averages.write(averages_file)
 
-print("Sending data to MQTT...")
-try:
-    auth = None
-    mqtt_username = mqtt_broker_cfg.get("username")
-    mqtt_password = mqtt_broker_cfg.get("password")
+    print("... done")
+else:
+    print("No message to send to MQTT, exiting.")
 
-    if mqtt_username:
-        auth = {"username": mqtt_username, "password": mqtt_password}
-    # print(messages)
-    publish.multiple(messages, keepalive=50,hostname=mqtt_broker_cfg.get("host"), port=mqtt_broker_cfg.getint("port"), client_id=mqtt_broker_cfg.get("client"), auth=auth)
-except Exception as ex:
-    print(datetime.datetime.now(), "Error publishing to MQTT: {0}".format(str(ex)))
-
-with open(AVERAGE_FILEPATH, "w") as averages_file:
-    averages.write(averages_file)
-
-print("... done")
